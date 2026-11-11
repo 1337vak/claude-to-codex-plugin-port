@@ -1,11 +1,44 @@
 """Required native installation tests; a missing Codex executable is a failure."""
+import errno
 import json
 from pathlib import Path
 import tempfile
 import unittest
 from unittest import mock
 
-from plugin_port.native import NativeError, smoke
+from plugin_port.native import NativeError, _remove_native_tree, smoke
+
+
+class NativeCleanupTests(unittest.TestCase):
+    def test_transient_background_write_race_is_retried(self):
+        for code in (errno.ENOTEMPTY, errno.EBUSY):
+            with self.subTest(errno=code), \
+                    mock.patch("plugin_port.native.shutil.rmtree", side_effect=[OSError(code, "busy"), None]) as remove, \
+                    mock.patch("plugin_port.native.time.sleep") as pause:
+                _remove_native_tree(Path("unused"))
+                self.assertEqual(remove.call_count, 2)
+                pause.assert_called_once()
+
+    def test_persistent_race_still_fails_at_deadline(self):
+        error = OSError(errno.ENOTEMPTY, "still busy")
+        with mock.patch("plugin_port.native.shutil.rmtree", side_effect=error) as remove, \
+                mock.patch("plugin_port.native.time.monotonic", side_effect=[0, 0, 11]), \
+                mock.patch("plugin_port.native.time.sleep") as pause:
+            with self.assertRaises(OSError) as raised:
+                _remove_native_tree(Path("unused"))
+            self.assertIs(raised.exception, error)
+            self.assertEqual(remove.call_count, 2)
+            pause.assert_called_once()
+
+    def test_other_cleanup_failures_are_not_retried(self):
+        error = PermissionError(errno.EACCES, "denied")
+        with mock.patch("plugin_port.native.shutil.rmtree", side_effect=error) as remove, \
+                mock.patch("plugin_port.native.time.sleep") as pause:
+            with self.assertRaises(PermissionError) as raised:
+                _remove_native_tree(Path("unused"))
+            self.assertIs(raised.exception, error)
+            remove.assert_called_once()
+            pause.assert_not_called()
 
 
 class NativeSmokeTests(unittest.TestCase):

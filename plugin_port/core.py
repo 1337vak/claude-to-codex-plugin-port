@@ -18,7 +18,7 @@ ENGINE = {
     "commit": "4ba48871919650d43a412e3faf0374272fdc209d",
 }
 TOOL_REPOSITORY = "https://github.com/1337vak/claude-to-codex-plugin-port.git"
-TOOL_RELEASE = "v0.1.0"
+TOOL_RELEASE = "v0.1.1"
 
 
 class PortError(RuntimeError):
@@ -174,16 +174,18 @@ def convert(source: Path, output: Path, engine: Path, name: str, bun: str):
         inspector = Path(temp) / "inventory.ts"
         inspector.write_text(
             "import {loadClaudePlugin} from " + json.dumps(str(engine / "src/parsers/claude.ts")) + ";\n"
+            "import {convertClaudeToCodex} from " + json.dumps(str(engine / "src/converters/claude-to-codex.ts")) + ";\n"
+            "import {writeCodexBundle} from " + json.dumps(str(engine / "src/targets/codex.ts")) + ";\n"
             "const p = await loadClaudePlugin(" + json.dumps(str(stage)) + ");\n"
+            "const ordered=(a,b)=>a.name<b.name?-1:a.name>b.name?1:0;\n"
+            "p.skills.sort(ordered);p.commands.sort(ordered);p.agents.sort(ordered);\n"
+            "await writeCodexBundle(" + json.dumps(str(output)) + ",convertClaudeToCodex(p,{codexIncludeSkills:true}),{outputIsCodexRoot:true});\n"
             "console.log(JSON.stringify({skills:p.skills.map(s=>({name:s.name,description:s.description,manual:s.disableModelInvocation,source:s.skillPath.replace(p.root+'/', '')})),commands:p.commands.map(c=>({name:c.name,manual:c.disableModelInvocation})),agents:p.agents.map(a=>({name:a.name,model:a.model,source:a.sourcePath.replace(p.root+'/', '')}))}));\n")
         metadata = json.loads(run([bun, inspector]))
         metadata["source_manifest_fields"] = sorted(original_manifest)
         metadata["withheld_capabilities"] = withheld
-        # Explicit codex-home is essential: the converter's --output is ignored for Codex.
-        log = run([bun, engine / "src/index.ts", "convert", stage,
-                   "--to", "codex", "--include-skills", "--codex-home", output])
         write_json(output / "source-components.json", metadata)
-        return log
+        return "Converted through the pinned upstream parser, converter and writer with sorted component inputs."
 
 
 def apply_patches(root: Path, patches: list):

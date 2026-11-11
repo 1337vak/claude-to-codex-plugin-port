@@ -133,6 +133,13 @@ class EngineRegressionTests(unittest.TestCase):
             self.assertTrue((skills / "hello/scripts/helper.py").stat().st_mode & 0o111)
             agent = converted / "agents" / config["name"] / "reviewer.toml"
             self.assertIn("REVIEW_SENTINEL", agent.read_text())
+            metadata = json.loads((converted / "source-components.json").read_text())
+            for kind in ("skills", "commands", "agents"):
+                self.assertEqual([item["name"] for item in metadata[kind]],
+                                 sorted(item["name"] for item in metadata[kind]))
+            repeated = root / "repeated"
+            core.convert(source, repeated, engine, config["name"], bun)
+            self.assertEqual(core.inventory(converted), core.inventory(repeated))
 
 
 if __name__ == "__main__":

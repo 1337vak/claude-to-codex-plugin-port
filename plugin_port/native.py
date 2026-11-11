@@ -1,6 +1,8 @@
 """Exercise a package through Codex without hosted model calls or a user profile."""
 from __future__ import annotations
 
+from contextlib import contextmanager
+import errno
 import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -13,6 +15,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import tomllib
 from typing import Any
 
@@ -26,6 +29,31 @@ _BAD_DIAGNOSTIC = re.compile(
     r"|invalid plugin|invalid manifest",
     re.I,
 )
+
+
+def _remove_native_tree(root: Path, *, timeout: float = 10) -> None:
+    """Allow bounded time for Codex's background clone writes to finish."""
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            shutil.rmtree(root)
+            return
+        except OSError as error:
+            if error.errno not in {errno.ENOTEMPTY, errno.EBUSY}:
+                raise
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise
+            time.sleep(min(0.1, remaining))
+
+
+@contextmanager
+def _native_workspace():
+    root = Path(tempfile.mkdtemp(prefix="plugin-port-native-")).resolve()
+    try:
+        yield root
+    finally:
+        _remove_native_tree(root)
 
 
 def _inventory(root: Path) -> dict[str, tuple[str, int]]:
@@ -287,8 +315,7 @@ def smoke(plugin: Path, marketplace_name: str, expected_skills: list[str],
                 for skill in expected_skills]
     original_files = _inventory(plugin)
     selector = f"{name}@{marketplace_name}"
-    with tempfile.TemporaryDirectory(prefix="plugin-port-native-") as directory:
-        root = Path(directory).resolve()
+    with _native_workspace() as root:
         env = _environment(root)
         cwd = root / "work"
         cwd.mkdir()
