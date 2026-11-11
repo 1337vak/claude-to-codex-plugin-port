@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "claude-to-codex-plugin-port"
+version = "0.1.0"
+description = "Reproducible Claude plugin adapters using the existing Compound Engineering converter"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+dependencies = []
+
+[project.scripts]
+plugin-port = "plugin_port.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["plugin_port*"]

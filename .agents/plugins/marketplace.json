@@ -1,0 +1,10 @@
+{
+  "name": "claude-to-codex-plugin-port",
+  "interface": {"displayName": "Claude to Codex Plugin Port"},
+  "plugins": [{
+    "name": "claude-to-codex-plugin-port",
+    "source": {"source": "local", "path": "./"},
+    "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
+    "category": "Productivity"
+  }]
+}

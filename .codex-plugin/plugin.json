@@ -1,0 +1,10 @@
+{
+  "name": "claude-to-codex-plugin-port",
+  "version": "0.1.0",
+  "description": "Build reproducible Codex adapters around an existing Claude plugin converter",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Claude to Codex Plugin Port",
+    "shortDescription": "Port, test and publish pinned plugin adapters"
+  }
+}
